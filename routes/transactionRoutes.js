@@ -5,19 +5,20 @@ import auth from "../middleware/authMiddleware.js"
 const router=express.Router()
 
 router.get("/",auth,async(req,res)=>{
-  const transactions=await Transaction.find({userId:req.userId})
+  const transactions=await Transaction.find({userId:req.userId}).populate('userId', 'name')
   res.json(transactions)
 })
 
 router.post("/",auth,async(req,res)=>{
   const {type,category,amount}=req.body
 
-  const transaction=await Transaction.create({
+  const newTransaction=await Transaction.create({
     userId:req.userId,
     type,
     category,
     amount
   })
+  const transaction=await Transaction.findById(newTransaction._id).populate('userId', 'name')
 
   res.json(transaction)
 })
