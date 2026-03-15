@@ -11,10 +11,7 @@ dotenv.config()
 const app = express()
 
 // Middleware
-app.use(cors({
-  origin: true,
-  credentials: true
-}))
+// CORS removed as requested
 app.use(express.json({ limit: "10mb" }))
 app.use(express.urlencoded({ extended: true }))
 
