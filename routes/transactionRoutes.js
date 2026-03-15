@@ -1,32 +1,25 @@
 import express from "express"
-import mongoose from "mongoose"
 import Transaction from "../models/Transaction.js"
 import auth from "../middleware/authMiddleware.js"
 
 const router = express.Router()
 
-// GET all transactions for logged in user
+// GET all transactions for user
 router.get("/", auth, async (req, res) => {
   try {
-    const transactions = await Transaction
-      .find({ userId: req.userId })
-      .populate("userId", "name")
-
-    res.status(200).json(transactions)
-
+    const transactions = await Transaction.find({ userId: req.userId }).populate('userId', 'name')
+    res.status(200).json({ success: true, transactions })
   } catch (error) {
-    res.status(500).json({ message: "Server error" })
+    res.status(500).json({ success: false, message: error.message })
   }
 })
 
-
-// CREATE a transaction
+// CREATE new transaction
 router.post("/", auth, async (req, res) => {
   try {
     const { type, category, amount } = req.body
-
-    if (!type || !category || !amount) {
-      return res.status(400).json({ message: "All fields are required" })
+    if (!type || !category || typeof amount !== 'number') {
+      return res.status(400).json({ success: false, message: "All fields are required and amount must be a number" })
     }
 
     const newTransaction = await Transaction.create({
@@ -36,66 +29,80 @@ router.post("/", auth, async (req, res) => {
       amount
     })
 
-    const transaction = await Transaction
-      .findById(newTransaction._id)
-      .populate("userId", "name")
+    const transaction = await Transaction.findById(newTransaction._id).populate('userId', 'name')
 
-    res.status(201).json(transaction)
-
+    res.status(201).json({ success: true, transaction })
   } catch (error) {
-    res.status(500).json({ message: "Server error" })
+    res.status(500).json({ success: false, message: error.message })
   }
 })
 
-
-// UPDATE a transaction
+// UPDATE transaction
 router.put("/:id", auth, async (req, res) => {
   try {
     const { type, category, amount } = req.body
 
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: "Invalid ID" })
+    // Basic validation
+    if (!type || !category || typeof amount !== "number") {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required and amount must be a number"
+      })
     }
 
-    const updatedTransaction = await Transaction.findOneAndUpdate(
-      { _id: req.params.id, userId: req.userId },
-      { type, category, amount },
-      { new: true }
-    ).populate("userId", "name")
-
-    if (!updatedTransaction) {
-      return res.status(404).json({ message: "Transaction not found" })
+    // Find transaction
+    const transaction = await Transaction.findById(req.params.id)
+    if (!transaction) {
+      return res.status(404).json({
+        success: false,
+        message: "Transaction not found"
+      })
     }
 
-    res.status(200).json(updatedTransaction)
+    // Authorization check
+    if (transaction.userId.toString() !== req.userId) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to update this transaction"
+      })
+    }
 
+    // Update fields
+    transaction.type = type
+    transaction.category = category
+    transaction.amount = amount
+
+    await transaction.save()
+
+    // Return updated transaction with populated user
+    const updatedTransaction = await Transaction.findById(transaction._id).populate(
+      "userId",
+      "name"
+    )
+
+    res.status(200).json({
+      success: true,
+      transaction: updatedTransaction
+    })
   } catch (error) {
-    res.status(500).json({ message: "Server error" })
+    res.status(500).json({ success: false, message: error.message })
   }
 })
 
-
-// DELETE a transaction
+// DELETE transaction
 router.delete("/:id", auth, async (req, res) => {
   try {
+    const transaction = await Transaction.findById(req.params.id)
+    if (!transaction) return res.status(404).json({ success: false, message: "Transaction not found" })
 
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: "Invalid ID" })
+    if (transaction.userId.toString() !== req.userId) {
+      return res.status(403).json({ success: false, message: "Not authorized" })
     }
 
-    const deleted = await Transaction.findOneAndDelete({
-      _id: req.params.id,
-      userId: req.userId
-    })
-
-    if (!deleted) {
-      return res.status(404).json({ message: "Transaction not found" })
-    }
-
-    res.status(200).json({ message: "Transaction deleted" })
-
+    await transaction.remove()
+    res.json({ success: true, message: "Deleted" })
   } catch (error) {
-    res.status(500).json({ message: "Server error" })
+    res.status(500).json({ success: false, message: error.message })
   }
 })
 
