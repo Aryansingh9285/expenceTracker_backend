@@ -2,11 +2,20 @@ import express from "express"
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
 import User from "../models/user.js"
+import { authLimiter } from "../middleware/rateLimit.js"
+import { registerValidator, loginValidator } from "../middleware/validators.js"
+import { validationResult } from 'express-validator';
 
 const router = express.Router()
 
 // REGISTER
-router.post("/register", async (req, res) => {
+router.post("/register", authLimiter, registerValidator, async (req, res) => {
+  // Validation results
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ success: false, message: errors.array()[0].msg });
+  }
+
   try {
     const { name, email, password } = req.body
 
@@ -26,13 +35,13 @@ router.post("/register", async (req, res) => {
       })
     }
 
-    const hashed = await bcrypt.hash(password, 10)
+    const hashed = await bcrypt.hash(password, 12)
 
-    await User.create({
-      name,
-      email,
+    const user = await User.create({
+      name: req.body.name.trim(),
+      email: req.body.email.trim().toLowerCase(),
       password: hashed
-    })
+    });
 
     res.status(201).json({
       success: true,
@@ -49,7 +58,12 @@ router.post("/register", async (req, res) => {
 
 
 // LOGIN
-router.post("/login", async (req, res) => {
+router.post("/login", authLimiter, loginValidator, async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ success: false, message: errors.array()[0].msg });
+  }
+
   try {
     const { email, password } = req.body
 
@@ -79,9 +93,9 @@ router.post("/login", async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user._id },
+      { id: user._id.toString(), email: user.email },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: '24h' }
     )
 
     res.json({
