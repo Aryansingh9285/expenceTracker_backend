@@ -3,36 +3,98 @@ import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
 import User from "../models/user.js"
 
-const router=express.Router()
+const router = express.Router()
 
-router.post("/register",async(req,res)=>{
-  const {name,email,password}=req.body
+// REGISTER
+router.post("/register", async (req, res) => {
+  try {
+    const { name, email, password } = req.body
 
-  const hashed=await bcrypt.hash(password,10)
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required"
+      })
+    }
 
-  const user=await User.create({
-    name,
-    email,
-    password:hashed
-  })
+    const existingUser = await User.findOne({ email })
 
-  res.json(user)
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "User already exists"
+      })
+    }
+
+    const hashed = await bcrypt.hash(password, 10)
+
+    await User.create({
+      name,
+      email,
+      password: hashed
+    })
+
+    res.status(201).json({
+      success: true,
+      message: "User registered successfully"
+    })
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    })
+  }
 })
 
-router.post("/login",async(req,res)=>{
-  const {email,password}=req.body
 
-  const user=await User.findOne({email})
+// LOGIN
+router.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body
 
-  if(!user) return res.status(400).json({message:"User not found"})
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password required"
+      })
+    }
 
-  const valid=await bcrypt.compare(password,user.password)
+    const user = await User.findOne({ email })
 
-  if(!valid) return res.status(400).json({message:"Invalid password"})
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      })
+    }
 
-  const token=jwt.sign({id:user._id},process.env.JWT_SECRET)
+    const valid = await bcrypt.compare(password, user.password)
 
-  res.json({token})
+    if (!valid) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid password"
+      })
+    }
+
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    )
+
+    res.json({
+      success: true,
+      token
+    })
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    })
+  }
 })
 
 export default router
