@@ -11,6 +11,10 @@ router.get("/",auth,async(req,res)=>{
 })
 
 router.post("/", auth, transactionValidator, async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ message: errors.array()[0].msg });
+  }
   const { type, category, amount } = req.body
 
   const newTransaction=await Transaction.create({
@@ -25,6 +29,10 @@ router.post("/", auth, transactionValidator, async (req, res) => {
 })
 
 router.put("/:id", auth, transactionValidator, async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ message: errors.array()[0].msg });
+  }
   try {
     const { type, category, amount } = req.body;
     const updates = { ...(type && { type }), ...(category && { category }), ...(amount && { amount }) };

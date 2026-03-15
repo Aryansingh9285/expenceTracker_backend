@@ -40,7 +40,7 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin: true, // Frontend origin
+  origin: ['http://localhost:5173', 'https://expence-tracker-frontend-rho.vercel.app/'],
   credentials: true
 }));
 app.use(express.json({ 
