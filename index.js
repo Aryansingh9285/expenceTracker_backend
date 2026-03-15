@@ -40,7 +40,7 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin: 'http://localhost:3000', // Frontend origin
+  origin: true, // Frontend origin
   credentials: true
 }));
 app.use(express.json({ 
