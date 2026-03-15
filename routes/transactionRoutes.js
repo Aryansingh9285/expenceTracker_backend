@@ -4,7 +4,6 @@ import auth from "../middleware/authMiddleware.js"
 
 const router = express.Router()
 
-// GET all transactions for user
 router.get("/", auth, async (req, res) => {
   try {
     const transactions = await Transaction.find({ userId: req.userId }).populate('userId', 'name')
