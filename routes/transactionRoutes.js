@@ -1,16 +1,17 @@
 import express from "express"
 import Transaction from "../models/Transaction.js"
 import auth from "../middleware/authMiddleware.js"
+import { transactionValidator } from "../middleware/validators.js"
 
-const router=express.Router()
+const router = express.Router()
 
 router.get("/",auth,async(req,res)=>{
   const transactions=await Transaction.find({userId:req.userId}).populate('userId', 'name')
   res.json(transactions)
 })
 
-router.post("/",auth,async(req,res)=>{
-  const {type,category,amount}=req.body
+router.post("/", auth, transactionValidator, async (req, res) => {
+  const { type, category, amount } = req.body
 
   const newTransaction=await Transaction.create({
     userId:req.userId,
@@ -23,7 +24,7 @@ router.post("/",auth,async(req,res)=>{
   res.json(transaction)
 })
 
-router.put("/:id", auth, async (req, res) => {
+router.put("/:id", auth, transactionValidator, async (req, res) => {
   try {
     const { type, category, amount } = req.body;
     const updates = { ...(type && { type }), ...(category && { category }), ...(amount && { amount }) };
@@ -48,9 +49,15 @@ router.put("/:id", auth, async (req, res) => {
   }
 });
 
-router.delete("/:id",auth,async(req,res)=>{
-  await Transaction.findByIdAndDelete(req.params.id)
-  res.json({message:"Deleted"})
+router.delete("/:id", auth, async (req, res) => {
+  const deleted = await Transaction.findOneAndDelete({ 
+    _id: req.params.id, 
+    userId: req.userId 
+  });
+  if (!deleted) {
+    return res.status(404).json({ message: "Transaction not found or not authorized" });
+  }
+  res.json({ message: "Deleted successfully" });
 })
 
 export default router

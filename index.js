@@ -1,6 +1,9 @@
 import express from "express"
 import mongoose from "mongoose"
 import cors from "cors"
+import helmet from "helmet"
+import mongoSanitize from "express-mongo-sanitize"
+import rateLimit from "express-rate-limit"
 import dotenv from "dotenv"
 
 import authRoutes from "./routes/authRoutes.js"
@@ -8,30 +11,51 @@ import transactionRoutes from "./routes/transactionRoutes.js"
 
 dotenv.config()
 
+// Security env checks
+if (!process.env.JWT_SECRET || !process.env.MONGO_URI) {
+  console.error("❌ Missing JWT_SECRET or MONGO_URI in .env");
+  process.exit(1);
+}
+
 const app = express()
 
 // Middleware
+// Rate limiting
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { error: 'Too many requests, slow down' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use(generalLimiter);
+
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+    },
+  },
+}));
+
 app.use(cors({
-  origin: true,
+  origin: 'http://localhost:3000', // Frontend origin
   credentials: true
-}))
-app.use(express.json({ limit: "10mb" }))
-app.use(express.urlencoded({ extended: true }))
+}));
+app.use(express.json({ 
+  limit: "10mb",
+  parameterLimit: 1000
+}));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(mongoSanitize());
 
 // Health check endpoint
 app.get("/health", (req, res) => {
   res.json({ status: "OK", message: "Server is running" })
 })
 
-// Test DB connection endpoint
-app.get("/api/test-db", async (req, res) => {
-  try {
-    await mongoose.connection.db.admin().ping();
-    res.json({ status: "OK", message: "MongoDB connected successfully" });
-  } catch (err) {
-    res.status(500).json({ status: "Error", message: "MongoDB not connected", error: err.message });
-  }
-})
+
 
 
 // MongoDB connection with better error handling
@@ -48,10 +72,9 @@ app.use("/api/transactions", transactionRoutes)
 
 // Global error handling middleware
 app.use((err, req, res, next) => {
-  console.error("🚨 Server Error:", err.stack)
+  console.error("🚨 Server Error:", err);
   res.status(500).json({ 
-    message: "Internal Server Error", 
-    error: process.env.NODE_ENV === "development" ? err.message : undefined 
+    message: "Internal Server Error"
   })
 })
 
