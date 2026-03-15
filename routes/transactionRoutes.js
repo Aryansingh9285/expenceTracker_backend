@@ -98,7 +98,7 @@ router.delete("/:id", auth, async (req, res) => {
       return res.status(403).json({ success: false, message: "Not authorized" })
     }
 
-    await transaction.remove()
+    await transaction.deleteOne()
     res.json({ success: true, message: "Deleted" })
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })
