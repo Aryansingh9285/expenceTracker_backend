@@ -1,8 +1,9 @@
 import express from "express"
 import Transaction from "../models/Transaction.js"
 import auth from "../middleware/authMiddleware.js"
+import { transactionValidator } from "../middleware/validators.js"
 
-const router=express.Router()
+const router = express.Router()
 
 router.get("/", auth, async (req, res) => {
   try {
@@ -31,7 +32,7 @@ router.post("/", auth, async (req, res) => {
   }
 })
 
-router.put("/:id", auth, async (req, res) => {
+router.put("/:id", auth, transactionValidator, async (req, res) => {
   try {
     const { type, category, amount } = req.body;
     const updates = { ...(type && { type }), ...(category && { category }), ...(amount && { amount }) };
