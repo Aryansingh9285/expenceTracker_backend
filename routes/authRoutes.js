@@ -2,6 +2,7 @@ import express from "express"
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
 import User from "../models/user.js"
+import authMiddleware from "../middleware/authMiddleware.js"
 
 const router = express.Router()
 
@@ -109,6 +110,75 @@ router.post("/login", async (req, res) => {
       success: false,
       message: error.message
     })
+  }
+})
+
+// UPDATE PROFILE
+router.put("/update-profile", authMiddleware, async (req, res) => {
+  try {
+    const { name, currentPassword, newPassword } = req.body;
+
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    // Update name if provided
+    if (name !== undefined) {
+      if (!name || typeof name !== "string") {
+        return res.status(400).json({
+          success: false,
+          message: "Valid name is required"
+        });
+      }
+      user.name = name.trim();
+    }
+
+    // Update password if provided
+    if (currentPassword && newPassword) {
+      if (typeof newPassword !== "string" || newPassword.length < 8) {
+        return res.status(400).json({
+          success: false,
+          message: "New password must be at least 8 characters"
+        });
+      }
+
+      const isMatch = await bcrypt.compare(currentPassword, user.password);
+      if (!isMatch) {
+        return res.status(400).json({
+          success: false,
+          message: "Current password is incorrect"
+        });
+      }
+
+      user.password = await bcrypt.hash(newPassword, 10);
+    } else if (currentPassword || newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Both currentPassword and newPassword are required to update password"
+      });
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Profile updated successfully",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 })
 
