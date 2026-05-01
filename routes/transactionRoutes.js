@@ -16,16 +16,35 @@ router.get("/", auth, async (req, res) => {
 // CREATE new transaction
 router.post("/", auth, async (req, res) => {
   try {
-    const { type, category, amount } = req.body
+    const { type, category, amount, date } = req.body
+    
+    // Validate required fields
     if (!type || !category || typeof amount !== 'number') {
-      return res.status(400).json({ success: false, message: "All fields are required and amount must be a number" })
+      return res.status(400).json({ 
+        success: false, 
+        message: "All fields are required and amount must be a number" 
+      })
+    }
+
+    // Build transaction data
+    // IMPORTANT: The 'date' field stores user-selected date, NOT current timestamp
+    // If user sends a date, use it. If not, default to start of current month
+    let transactionDate;
+    if (date) {
+      // Parse the date - frontend sends as ISO string or Date object
+      transactionDate = new Date(date);
+    } else {
+      // Default to first day of current month if no date provided
+      const now = new Date();
+      transactionDate = new Date(now.getFullYear(), now.getMonth(), 1);
     }
 
     const newTransaction = await Transaction.create({
       userId: req.userId,
       type,
       category,
-      amount
+      amount,
+      date: transactionDate  // Now correctly saved!
     })
 
     const transaction = await Transaction.findById(newTransaction._id).populate('userId', 'name')
@@ -39,7 +58,7 @@ router.post("/", auth, async (req, res) => {
 // UPDATE transaction
 router.put("/:id", auth, async (req, res) => {
   try {
-    const { type, category, amount } = req.body
+    const { type, category, amount, date } = req.body
 
     // Basic validation
     if (!type || !category || typeof amount !== "number") {
@@ -70,6 +89,11 @@ router.put("/:id", auth, async (req, res) => {
     transaction.type = type
     transaction.category = category
     transaction.amount = amount
+    
+    // Handle date update - if date is provided, use it; otherwise keep existing
+    if (date) {
+      transaction.date = new Date(date)
+    }
 
     await transaction.save()
 
